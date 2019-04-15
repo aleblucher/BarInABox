@@ -163,7 +163,8 @@ int main (void)
 	char buffer[1024];
 	
 	while(1) {
-		usart_put_string(USART0, "HM10-OI");
+		usart_get_string(USART1, buffer, 1024, 1000);
+		usart_put_string(USART0, buffer);
 		usart_get_string(USART0, buffer, 1024, 1000);
 		usart_log("main", buffer);
 	}
