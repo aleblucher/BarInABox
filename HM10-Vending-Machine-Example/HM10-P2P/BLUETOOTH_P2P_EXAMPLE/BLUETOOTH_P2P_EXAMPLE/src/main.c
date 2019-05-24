@@ -117,7 +117,7 @@ int hm10_server_init(void) {
 	usart_send_command(USART0, buffer_rx, 1000, "AT", 200);
 	usart_send_command(USART0, buffer_rx, 1000, "AT+RESET", 400);
 	usart_log("hm10_server_init", buffer_rx);	
-	usart_send_command(USART0, buffer_rx, 1000, "AT+NAMEServer", 400);
+	usart_send_command(USART0, buffer_rx, 1000, "AT+NAMEBarInABox", 400);
 	usart_log("hm10_server_init", buffer_rx);
 	usart_send_command(USART0, buffer_rx, 1000, "AT+FILT0", 400);
 	usart_log("hm10_server_init", buffer_rx);
