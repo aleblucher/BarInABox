@@ -66,7 +66,6 @@ typedef struct {
   uint y;
 } touchData;
 
-
 /************************************************************************/
 /*  Defines                                                             */
 /************************************************************************/
@@ -147,6 +146,24 @@ typedef struct {
 #define PIO_PWM_0 PIOA
 #define ID_PIO_PWM_0 ID_PIOA
 #define MASK_PIN_PWM_0 (1 << 0)
+
+// LED Vermelho
+#define LED_VERMELHO_PIO      PIOD
+#define LED_VERMELHO_PIO_ID   ID_PIOD
+#define LED_VERMELHO_IDX      11
+#define LED_VERMELHO_IDX_MASK (1 << LED_VERMELHO_IDX)
+
+// LED Verde
+#define LED_VERDE_PIO      PIOD
+#define LED_VERDE_PIO_ID   ID_PIOD
+#define LED_VERDE_IDX      12
+#define LED_VERDE_IDX_MASK (1 << LED_VERDE_IDX)
+
+// LED Azul
+#define LED_AZUL_PIO      PIOA
+#define LED_AZUL_PIO_ID   ID_PIOA
+#define LED_AZUL_IDX      27
+#define LED_AZUL_IDX_MASK (1 << LED_AZUL_IDX)
 
 /** PWM frequency in Hz */
 #define PWM_FREQUENCY      1000
@@ -412,6 +429,15 @@ void io_init(void)
 	pio_configure(BOMBA5_PIO, PIO_OUTPUT_0, BOMBA5_IDX_MASK, PIO_DEFAULT);
 	pmc_enable_periph_clk(BOMBA6_PIO_ID);
 	pio_configure(BOMBA6_PIO, PIO_OUTPUT_0, BOMBA6_IDX_MASK, PIO_DEFAULT);
+	
+	pmc_enable_periph_clk(LED_VERMELHO_PIO_ID);
+	pio_configure(LED_VERMELHO_PIO, PIO_OUTPUT_1, LED_VERMELHO_IDX_MASK, PIO_DEFAULT);
+	
+	pmc_enable_periph_clk(LED_VERDE_PIO_ID);
+	pio_configure(LED_VERDE_PIO, PIO_OUTPUT_1,LED_VERDE_IDX_MASK, PIO_DEFAULT);
+	
+	pmc_enable_periph_clk(LED_AZUL_PIO_ID);
+	pio_configure(LED_AZUL_PIO, PIO_OUTPUT_1, LED_AZUL_IDX_MASK, PIO_DEFAULT);
 
 
 	pmc_enable_periph_clk(BUT_PIO_ID);
@@ -534,13 +560,14 @@ uint32_t convert_axis_system_y(uint32_t touch_x) {
 
 
 void task_bomb1(void){
-	io_init();
+
 	while(true){
 		if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(VALVE_PIO, VALVE_IDX_MASK);
 			// Tempo teste: descobrir o tempo para encher metade de um copo
 			vTaskDelay(10000); 
 			pio_clear(VALVE_PIO, VALVE_IDX_MASK);
+
 			
 		}
 		vTaskDelay(100); 
@@ -553,9 +580,13 @@ void task_bomb2(void){
 	while(true){
 		if(xSemaphoreTake(xSemaphoreB2, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(BOMBA_PIO, BOMBA_IDX_MASK);
+			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
 			// Tempo teste: descobrir o tempo para encher metade de um copo
 			vTaskDelay(10000);
 			pio_clear(BOMBA_PIO, BOMBA_IDX_MASK);
+			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 			
 		}
 		vTaskDelay(100); 
@@ -563,12 +594,18 @@ void task_bomb2(void){
 }
 
 void task_bomb3(void){
+
 		while(true){
 			if(xSemaphoreTake(xSemaphoreB3, ( TickType_t ) 100) == pdTRUE ){
 				pio_set(BOMBA3_PIO, BOMBA3_IDX_MASK);
+				pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
 				// Tempo teste: descobrir o tempo para encher metade de um copo
 				vTaskDelay(10000);
 				pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				
 				
 			}
 			vTaskDelay(100);
@@ -576,12 +613,19 @@ void task_bomb3(void){
 }
 
 void task_bomb4(void){
+
 		while(true){
 			if(xSemaphoreTake(xSemaphoreB4, ( TickType_t ) 100) == pdTRUE ){
 				pio_set(BOMBA4_PIO, BOMBA4_IDX_MASK);
+				pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
 				// Tempo teste: descobrir o tempo para encher metade de um copo
 				vTaskDelay(10000);
 				pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				
 				
 			}
 			vTaskDelay(100);
@@ -589,12 +633,19 @@ void task_bomb4(void){
 }
 
 void task_bomb5(void){
+
 		while(true){
 			if(xSemaphoreTake(xSemaphoreB5, ( TickType_t ) 100) == pdTRUE ){
 				pio_set(BOMBA5_PIO, BOMBA5_IDX_MASK);
+				pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 				// Tempo teste: descobrir o tempo para encher metade de um copo
 				vTaskDelay(10000);
 				pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				
 				
 			}
 			vTaskDelay(100);
@@ -602,12 +653,18 @@ void task_bomb5(void){
 }
 
 void task_bomb6(void){
+
 		while(true){
 			if(xSemaphoreTake(xSemaphoreB6, ( TickType_t ) 100) == pdTRUE ){
 				pio_set(BOMBA6_PIO, BOMBA6_IDX_MASK);
+				pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
 				// Tempo teste: descobrir o tempo para encher metade de um copo
 				vTaskDelay(10000);
 				pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 				
 			}
 			vTaskDelay(100);
@@ -644,6 +701,7 @@ int main(void)
 	xSemaphoreB5 = xSemaphoreCreateBinary();
 	xSemaphoreB6 = xSemaphoreCreateBinary();
 		  	 
+	io_init();
   
    /* Create task to handler touch */
    if (xTaskCreate(task_bomb1, "Bomb 1", TASK_BOMB1_STACK_SIZE, NULL, TASK_BOMB1_STACK_PRIORITY, NULL) != pdPASS) {
