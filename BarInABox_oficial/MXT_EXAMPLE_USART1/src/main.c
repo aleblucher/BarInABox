@@ -558,22 +558,26 @@ uint32_t convert_axis_system_y(uint32_t touch_x) {
 }
 
 
+void crazylights(void){
+	
+}
 
 void task_bomb1(void){
 
 	while(true){
 		if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(VALVE_PIO, VALVE_IDX_MASK);
+			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 			// Tempo teste: descobrir o tempo para encher metade de um copo
 			vTaskDelay(10000); 
 			pio_clear(VALVE_PIO, VALVE_IDX_MASK);
+			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 
 			
 		}
 		vTaskDelay(100); 
 	}
 	
-
 }
 
 void task_bomb2(void){
@@ -585,8 +589,7 @@ void task_bomb2(void){
 			vTaskDelay(10000);
 			pio_clear(BOMBA_PIO, BOMBA_IDX_MASK);
 			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+
 			
 		}
 		vTaskDelay(100); 
@@ -602,9 +605,7 @@ void task_bomb3(void){
 				// Tempo teste: descobrir o tempo para encher metade de um copo
 				vTaskDelay(10000);
 				pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
-				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
 				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 				
 				
 			}
@@ -624,7 +625,6 @@ void task_bomb4(void){
 				pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
 				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
 				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 				
 				
 			}
@@ -643,7 +643,6 @@ void task_bomb5(void){
 				vTaskDelay(10000);
 				pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
 				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
 				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 				
 				
@@ -662,7 +661,6 @@ void task_bomb6(void){
 				// Tempo teste: descobrir o tempo para encher metade de um copo
 				vTaskDelay(10000);
 				pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
-				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
 				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
 				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 				
