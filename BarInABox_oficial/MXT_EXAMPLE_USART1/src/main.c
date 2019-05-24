@@ -98,13 +98,13 @@ typedef struct {
 // Bomba 5
 #define BOMBA5_PIO      PIOD
 #define BOMBA5_PIO_ID   ID_PIOD
-#define BOMBA5_IDX      21
+#define BOMBA5_IDX      25
 #define BOMBA5_IDX_MASK (1 << BOMBA5_IDX)
 
 // Bomba 6
-#define BOMBA6_PIO      PIOD
-#define BOMBA6_PIO_ID   ID_PIOD
-#define BOMBA6_IDX      21
+#define BOMBA6_PIO      PIOA
+#define BOMBA6_PIO_ID   ID_PIOA
+#define BOMBA6_IDX      5
 #define BOMBA6_IDX_MASK (1 << BOMBA6_IDX)
 
 // Botão azul
@@ -534,6 +534,7 @@ uint32_t convert_axis_system_y(uint32_t touch_x) {
 
 
 void task_bomb1(void){
+	io_init();
 	while(true){
 		if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(VALVE_PIO, VALVE_IDX_MASK);
@@ -641,9 +642,8 @@ int main(void)
 	xSemaphoreB3 = xSemaphoreCreateBinary();
 	xSemaphoreB4 = xSemaphoreCreateBinary();
 	xSemaphoreB5 = xSemaphoreCreateBinary();
-	xSemaphoreB5 = xSemaphoreCreateBinary();
+	xSemaphoreB6 = xSemaphoreCreateBinary();
 		  	 
-	io_init();
   
    /* Create task to handler touch */
    if (xTaskCreate(task_bomb1, "Bomb 1", TASK_BOMB1_STACK_SIZE, NULL, TASK_BOMB1_STACK_PRIORITY, NULL) != pdPASS) {
@@ -654,7 +654,7 @@ int main(void)
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
-/	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
+	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
