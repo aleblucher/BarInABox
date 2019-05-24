@@ -650,11 +650,11 @@ int main(void)
 	    printf("Failed to create test BOMB 1 task\r\n");
     }
 	
-if (xTaskCreate(task_bomb2, "Bomb 2", TASK_BOMB2_STACK_SIZE, NULL, TASK_BOMB2_STACK_PRIORITY, NULL) != pdPASS) {
+	if (xTaskCreate(task_bomb2, "Bomb 2", TASK_BOMB2_STACK_SIZE, NULL, TASK_BOMB2_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
-/*		if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
+/	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
@@ -668,7 +668,7 @@ if (xTaskCreate(task_bomb2, "Bomb 2", TASK_BOMB2_STACK_SIZE, NULL, TASK_BOMB2_ST
 	
 	if (xTaskCreate(task_bomb6, "Bomb 6", TASK_BOMB6_STACK_SIZE, NULL, TASK_BOMB6_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test BOMB 1 task\r\n");
-	}*/
+	}
 	
 	
 
