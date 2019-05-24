@@ -84,15 +84,15 @@ typedef struct {
 #define BOMBA_IDX_MASK (1 << BOMBA_IDX)
 
 // Bomba 3
-#define BOMBA3_PIO      PIOD
-#define BOMBA3_PIO_ID   ID_PIOD
-#define BOMBA3_IDX      21
+#define BOMBA3_PIO      PIOA
+#define BOMBA3_PIO_ID   ID_PIOA
+#define BOMBA3_IDX      13
 #define BOMBA3_IDX_MASK (1 << BOMBA3_IDX)
 
 // Bomba 4
-#define BOMBA4_PIO      PIOD
-#define BOMBA4_PIO_ID   ID_PIOD
-#define BOMBA4_IDX      21
+#define BOMBA4_PIO      PIOC
+#define BOMBA4_PIO_ID   ID_PIOC
+#define BOMBA4_IDX      19
 #define BOMBA4_IDX_MASK (1 << BOMBA4_IDX)
 
 // Bomba 5
@@ -404,6 +404,14 @@ void io_init(void)
 	pio_configure(VALVE_PIO, PIO_OUTPUT_0, VALVE_IDX_MASK, PIO_DEFAULT);
 	pmc_enable_periph_clk(BOMBA_PIO_ID);
 	pio_configure(BOMBA_PIO, PIO_OUTPUT_0, BOMBA_IDX_MASK, PIO_DEFAULT);
+	pmc_enable_periph_clk(BOMBA3_PIO_ID);
+	pio_configure(BOMBA3_PIO, PIO_OUTPUT_0, BOMBA3_IDX_MASK, PIO_DEFAULT);
+	pmc_enable_periph_clk(BOMBA4_PIO_ID);
+	pio_configure(BOMBA4_PIO, PIO_OUTPUT_0, BOMBA4_IDX_MASK, PIO_DEFAULT);
+	pmc_enable_periph_clk(BOMBA5_PIO_ID);
+	pio_configure(BOMBA5_PIO, PIO_OUTPUT_0, BOMBA5_IDX_MASK, PIO_DEFAULT);
+	pmc_enable_periph_clk(BOMBA6_PIO_ID);
+	pio_configure(BOMBA6_PIO, PIO_OUTPUT_0, BOMBA6_IDX_MASK, PIO_DEFAULT);
 
 
 	pmc_enable_periph_clk(BUT_PIO_ID);
@@ -526,17 +534,7 @@ uint32_t convert_axis_system_y(uint32_t touch_x) {
 
 
 void task_bomb1(void){
-	  	xSemaphoreB1 = xSemaphoreCreateBinary();
-		  xSemaphoreB2 = xSemaphoreCreateBinary();
-		  xSemaphoreB3 = xSemaphoreCreateBinary();
-		  xSemaphoreB4 = xSemaphoreCreateBinary();
-		  xSemaphoreB5 = xSemaphoreCreateBinary();
-		  xSemaphoreB5 = xSemaphoreCreateBinary();
-		  
-		  io_init();
-		  
 	while(true){
-		
 		if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(VALVE_PIO, VALVE_IDX_MASK);
 			// Tempo teste: descobrir o tempo para encher metade de um copo
@@ -564,15 +562,55 @@ void task_bomb2(void){
 }
 
 void task_bomb3(void){
+		while(true){
+			if(xSemaphoreTake(xSemaphoreB3, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA3_PIO, BOMBA3_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
+				
+			}
+			vTaskDelay(100);
+		}
 }
 
 void task_bomb4(void){
+		while(true){
+			if(xSemaphoreTake(xSemaphoreB4, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA4_PIO, BOMBA4_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
+				
+			}
+			vTaskDelay(100);
+		}
 }
 
 void task_bomb5(void){
+		while(true){
+			if(xSemaphoreTake(xSemaphoreB5, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA5_PIO, BOMBA5_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
+				
+			}
+			vTaskDelay(100);
+		}
 }
 
 void task_bomb6(void){
+		while(true){
+			if(xSemaphoreTake(xSemaphoreB6, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA6_PIO, BOMBA6_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
+				
+			}
+			vTaskDelay(100);
+		}
 }
 
 
@@ -598,6 +636,14 @@ int main(void)
 	/* Initialize stdio on USART */
 	stdio_serial_init(USART_SERIAL_EXAMPLE, &usart_serial_options);
 	
+	xSemaphoreB1 = xSemaphoreCreateBinary();
+	xSemaphoreB2 = xSemaphoreCreateBinary();
+	xSemaphoreB3 = xSemaphoreCreateBinary();
+	xSemaphoreB4 = xSemaphoreCreateBinary();
+	xSemaphoreB5 = xSemaphoreCreateBinary();
+	xSemaphoreB5 = xSemaphoreCreateBinary();
+		  	 
+	io_init();
   
    /* Create task to handler touch */
    if (xTaskCreate(task_bomb1, "Bomb 1", TASK_BOMB1_STACK_SIZE, NULL, TASK_BOMB1_STACK_PRIORITY, NULL) != pdPASS) {
