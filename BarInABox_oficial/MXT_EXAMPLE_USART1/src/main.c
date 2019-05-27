@@ -357,10 +357,6 @@ void PWM0_init(uint channel, uint duty){
 
 volatile long g_systimer = 0;
 
-void SysTick_Handler() {
-	g_systimer++;
-}
-
 void usart_put_string(Usart *usart, char str[]) {
 	usart_serial_write_packet(usart, str, strlen(str));
 }
@@ -659,7 +655,11 @@ void task_bluetooth(void){
 	uint bluetoothString;
 	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 100) != pdTRUE ){
+		if(xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 100) == pdTRUE ){
+			printf("Ola1");
+		}
+		else{
+			printf("Ola2");
 			if(bluetoothString > 0){
 				usart_put_string(USART0, "PAGAMENTO REALIZADO\n");
 				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -682,12 +682,10 @@ void task_bomb1(void){
 			// Tempo teste: descobrir o tempo para encher metade de um copo
 			vTaskDelay(10000); 
 			pio_clear(VALVE_PIO, VALVE_IDX_MASK);
-			
+
 		}
 		vTaskDelay(100); 
 	}
-	
-
 }
 
 void task_bomb2(void){
@@ -804,7 +802,7 @@ int main(void)
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
-/	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
+	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
@@ -823,15 +821,13 @@ int main(void)
 	if (xTaskCreate(task_bluetooth, "Bluetooth", TASK_BLUETOOTH_STACK_SIZE, NULL, TASK_BLUETOOTH_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test Bluetooth task\r\n");
 	}
-	
-	
 
-  /* Start the scheduler. */
-  vTaskStartScheduler();
+	/* Start the scheduler. */
+	vTaskStartScheduler();
 
-  while(1){
+	while(1){
 
-  }
+	}
 
 
 	return 0;
