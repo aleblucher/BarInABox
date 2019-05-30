@@ -1,8 +1,3 @@
-/**
- * Alessandra Blücher
- *
-**/
-
 #include <asf.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,66 +8,13 @@
 #include "tfont.h"
 #include "digital521.h"
 
-
 /************************************************************************/
-/* LCD + TOUCH                                                          */
+/* defines                                                              */
 /************************************************************************/
-#define MAX_ENTRIES        3
 
-struct ili9488_opt_t g_ili9488_display_opt;
-const uint32_t BUTTON_W = 120;
-const uint32_t BUTTON_H = 150;
-const uint32_t BUTTON_BORDER = 2;
-const uint32_t BUTTON_X = ILI9488_LCD_WIDTH/2;
-const uint32_t BUTTON_Y = ILI9488_LCD_HEIGHT/2;
-	
-/************************************************************************/
-/* RTOS                                                                  */
-/************************************************************************/
-#define TASK_MXT_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_MXT_STACK_PRIORITY        (tskIDLE_PRIORITY)  
-
-#define TASK_LCD_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_LCD_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BOMB1_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BOMB1_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BOMB2_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BOMB2_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BOMB3_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BOMB3_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BOMB4_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BOMB4_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BOMB5_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BOMB5_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BOMB6_STACK_SIZE            (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BOMB6_STACK_PRIORITY        (tskIDLE_PRIORITY)
-
-#define TASK_BLUETOOTH_STACK_SIZE        (4*1024/sizeof(portSTACK_TYPE))
-#define TASK_BLUETOOTH_STACK_PRIORITY    (tskIDLE_PRIORITY)
-
-
-QueueHandle_t xQueueTouch;
-QueueHandle_t xQueueBomb;
-SemaphoreHandle_t xSemaphoreB1,  xSemaphoreB2,  xSemaphoreB3,  xSemaphoreB4,  xSemaphoreB5,  xSemaphoreB6, xSemaphoreBluetooth;
-
-
-/* Canal do sensor de temperatura */
-
-typedef struct {
-  uint x;
-  uint y;
-} touchData;
-
-
-/************************************************************************/
-/*  Defines                                                             */
-/************************************************************************/
+// usart (bluetooth)
+#define USART_COM_ID ID_USART0
+#define USART_COM    USART0
 
 // Bomba 1
 #define VALVE_PIO      PIOC
@@ -101,13 +43,13 @@ typedef struct {
 // Bomba 5
 #define BOMBA5_PIO      PIOD
 #define BOMBA5_PIO_ID   ID_PIOD
-#define BOMBA5_IDX      21
+#define BOMBA5_IDX      25
 #define BOMBA5_IDX_MASK (1 << BOMBA5_IDX)
 
 // Bomba 6
-#define BOMBA6_PIO      PIOD
-#define BOMBA6_PIO_ID   ID_PIOD
-#define BOMBA6_IDX      21
+#define BOMBA6_PIO      PIOA
+#define BOMBA6_PIO_ID   ID_PIOA
+#define BOMBA6_IDX      5
 #define BOMBA6_IDX_MASK (1 << BOMBA6_IDX)
 
 // Botão azul
@@ -151,6 +93,24 @@ typedef struct {
 #define ID_PIO_PWM_0 ID_PIOA
 #define MASK_PIN_PWM_0 (1 << 0)
 
+// LED Vermelho
+#define LED_VERMELHO_PIO      PIOD
+#define LED_VERMELHO_PIO_ID   ID_PIOD
+#define LED_VERMELHO_IDX      11
+#define LED_VERMELHO_IDX_MASK (1 << LED_VERMELHO_IDX)
+
+// LED Verde
+#define LED_VERDE_PIO      PIOD
+#define LED_VERDE_PIO_ID   ID_PIOD
+#define LED_VERDE_IDX      12
+#define LED_VERDE_IDX_MASK (1 << LED_VERDE_IDX)
+
+// LED Azul
+#define LED_AZUL_PIO      PIOA
+#define LED_AZUL_PIO_ID   ID_PIOA
+#define LED_AZUL_IDX      27
+#define LED_AZUL_IDX_MASK (1 << LED_AZUL_IDX)
+
 /** PWM frequency in Hz */
 #define PWM_FREQUENCY      1000
 /** Period value of PWM output waveform */
@@ -162,8 +122,69 @@ typedef struct {
 pwm_channel_t g_pwm_channel_led;
 volatile uint duty = 0;
 
+/** RTOS  */
+#define TASK_MXT_STACK_SIZE            (2*1024/sizeof(portSTACK_TYPE))
+#define TASK_MXT_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_LCD_STACK_SIZE            (2*1024/sizeof(portSTACK_TYPE))
+#define TASK_LCD_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BOMB1_STACK_SIZE            (1024/sizeof(portSTACK_TYPE))
+#define TASK_BOMB1_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BOMB2_STACK_SIZE            (1024/sizeof(portSTACK_TYPE))
+#define TASK_BOMB2_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BOMB3_STACK_SIZE            (1024/sizeof(portSTACK_TYPE))
+#define TASK_BOMB3_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BOMB4_STACK_SIZE            (1024/sizeof(portSTACK_TYPE))
+#define TASK_BOMB4_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BOMB5_STACK_SIZE            (1024/sizeof(portSTACK_TYPE))
+#define TASK_BOMB5_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BOMB6_STACK_SIZE            (1024/sizeof(portSTACK_TYPE))
+#define TASK_BOMB6_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+#define TASK_BLUETOOTH_STACK_SIZE            (4096/sizeof(portSTACK_TYPE))
+#define TASK_BLUETOOTH_STACK_PRIORITY        (tskIDLE_PRIORITY)
+
+extern void vApplicationStackOverflowHook(xTaskHandle *pxTask,
+		signed char *pcTaskName);
+extern void vApplicationIdleHook(void);
+extern void vApplicationTickHook(void);
+extern void vApplicationMallocFailedHook(void);
+extern void xPortSysTickHandler(void);
+
+
+/** prototypes */
+void but_callback(void);
+static void ECHO_init(void);
+static void USART1_init(void);
+uint32_t usart_puts(uint8_t *pstring);
+
+
+QueueHandle_t xQueueTouch;
+QueueHandle_t xQueueBomb;
+SemaphoreHandle_t xSemaphoreB1,  xSemaphoreB2,  xSemaphoreB3,  xSemaphoreB4,  xSemaphoreB5,  xSemaphoreB6, xSemaphoreBluetooth;
+volatile uint32_t g_tcCv = 0;
+
 /************************************************************************/
-/* RTOS hooks                                                           */
+/* LCD + TOUCH                                                          */
+/************************************************************************/
+#define MAX_ENTRIES        3
+
+struct ili9488_opt_t g_ili9488_display_opt;
+const uint32_t BUTTON_W = 120;
+const uint32_t BUTTON_H = 150;
+const uint32_t BUTTON_BORDER = 2;
+const uint32_t BUTTON_X = ILI9488_LCD_WIDTH/2;
+const uint32_t BUTTON_Y = ILI9488_LCD_HEIGHT/2;
+
+
+/************************************************************************/
+/* RTOS application funcs                                               */
 /************************************************************************/
 
 /**
@@ -185,7 +206,7 @@ extern void vApplicationStackOverflowHook(xTaskHandle *pxTask,
  */
 extern void vApplicationIdleHook(void)
 {
-	//pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
+	pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 }
 
 /**
@@ -210,7 +231,6 @@ extern void vApplicationMallocFailedHook(void)
 /************************************************************************/
 /* init                                                                 */
 /************************************************************************/
-
 
 static void configure_lcd(void){
 	/* Initialize display parameter */
@@ -316,7 +336,6 @@ static void mxt_init(struct mxt_device *device)
 			+ MXT_GEN_COMMANDPROCESSOR_CALIBRATE, 0x01);
 }
 
-
 void PWM0_init(uint channel, uint duty){
 	/* Enable PWM peripheral clock */
 	pmc_enable_periph_clk(ID_PWM0);
@@ -352,125 +371,6 @@ void PWM0_init(uint channel, uint duty){
 }
 
 /************************************************************************/
-/*  Bluetooth                                                           */
-/************************************************************************/
-
-volatile long g_systimer = 0;
-
-void usart_put_string(Usart *usart, char str[]) {
-	usart_serial_write_packet(usart, str, strlen(str));
-}
-
-int usart_get_string(Usart *usart, char buffer[], int bufferlen, int timeout_ms) {
-	long timestart = g_systimer;
-	uint32_t rx;
-	uint32_t counter = 0;
-	
-	while(g_systimer - timestart < timeout_ms && counter < bufferlen - 1) {
-		if(usart_read(usart, &rx) == 0) {
-			//timestart = g_systimer; // reset timeout
-			buffer[counter++] = rx;
-		}
-	}
-	buffer[counter] = 0x00;
-	return counter;
-}
-
-void usart_send_command(Usart *usart, char buffer_rx[], int bufferlen, char buffer_tx[], int timeout) {
-	usart_put_string(usart, buffer_tx);
-	usart_get_string(usart, buffer_rx, bufferlen, timeout);
-}
-
-void usart_log(char* name, char* log) {
-	usart_put_string(USART1, "[");
-	usart_put_string(USART1, name);
-	usart_put_string(USART1, "] ");
-	usart_put_string(USART1, log);
-	usart_put_string(USART1, "\r\n");
-}
-
-void config_console(void) {
-	usart_serial_options_t config;
-	config.baudrate = 115200;
-	config.charlength = US_MR_CHRL_8_BIT;
-	config.paritytype = US_MR_PAR_NO;
-	config.stopbits = false;
-	usart_serial_init(USART1, &config);
-	usart_enable_tx(USART1);
-	usart_enable_rx(USART1);
-}
-
-void hm10_config_server(void) {
-	usart_serial_options_t config;
-	config.baudrate = 9600;
-	config.charlength = US_MR_CHRL_8_BIT;
-	config.paritytype = US_MR_PAR_NO;
-	config.stopbits = false;
-	usart_serial_init(USART0, &config);
-	usart_enable_tx(USART0);
-	usart_enable_rx(USART0);
-	
-	// RX - PB0  TX - PB1
-	pio_configure(PIOB, PIO_PERIPH_C, (1 << 0), PIO_DEFAULT);
-	pio_configure(PIOB, PIO_PERIPH_C, (1 << 1), PIO_DEFAULT);
-}
-
-void hm10_config_client(void) {
-	usart_serial_options_t config;
-	config.baudrate = 9600;
-	config.charlength = US_MR_CHRL_8_BIT;
-	config.paritytype = US_MR_PAR_NO;
-	config.stopbits = false;
-	usart_serial_init(UART3, &config);
-	usart_enable_tx(UART3);
-	usart_enable_rx(UART3);
-	
-	// RX - PD28 TX - PD30
-	pio_configure(PIOD, PIO_PERIPH_A, (1 << 28), PIO_DEFAULT);
-	pio_configure(PIOD, PIO_PERIPH_A, (1 << 30), PIO_DEFAULT);
-}
-
-int hm10_server_init(void) {
-	char buffer_rx[128];
-	usart_send_command(USART0, buffer_rx, 1000, "AT", 200);
-	usart_send_command(USART0, buffer_rx, 1000, "AT", 200);
-	usart_send_command(USART0, buffer_rx, 1000, "AT", 200);
-	usart_send_command(USART0, buffer_rx, 1000, "AT+RESET", 400);
-	usart_log("hm10_server_init", buffer_rx);
-	usart_send_command(USART0, buffer_rx, 1000, "AT+NAMEBarInABox", 400);
-	usart_log("hm10_server_init", buffer_rx);
-	usart_send_command(USART0, buffer_rx, 1000, "AT+FILT0", 400);
-	usart_log("hm10_server_init", buffer_rx);
-	usart_send_command(USART0, buffer_rx, 1000, "AT+SHOW1", 400);
-	usart_log("hm10_server_init", buffer_rx);
-	usart_send_command(USART0, buffer_rx, 1000, "AT+ROLE0", 400);
-	usart_log("hm10_server_init", buffer_rx);
-}
-
-int hm10_client_init(void) {
-	char buffer_rx[128];
-	usart_send_command(UART3, buffer_rx, 1000, "AT", 200);
-	usart_send_command(UART3, buffer_rx, 1000, "AT", 200);
-	usart_send_command(UART3, buffer_rx, 1000, "AT", 200);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+RESET", 400);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+NAMEClient", 400);
-	usart_log("hm10_client_init", buffer_rx);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+IMME1", 400);
-	usart_log("hm10_client_init", buffer_rx);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+ROLE1", 400);
-	usart_log("hm10_client_init", buffer_rx);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+RESET", 800); // http://www.martyncurrey.com/hm-10-bluetooth-4ble-modules/
-	usart_log("hm10_client_init", buffer_rx);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+DISC?", 10000);
-	usart_log("hm10_client_init", buffer_rx);
-	usart_send_command(UART3, buffer_rx, 1000, "AT+CONN0", 1000);
-	usart_log("hm10_client_init", buffer_rx);
-	
-}
-
-
-
-/************************************************************************/
 /* Callbacks: / Handler                                                 */
 /************************************************************************/
 
@@ -493,7 +393,7 @@ void but_verde_callback(void)
 void but_vermelho_callback(void)
 {
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	xSemaphoreGiveFromISR(xSemaphoreB3, &xHigherPriorityTaskWoken);	
+	xSemaphoreGiveFromISR(xSemaphoreB3, &xHigherPriorityTaskWoken);
 
 }
 
@@ -515,8 +415,6 @@ void but_preto_callback(void)
 	xSemaphoreGiveFromISR(xSemaphoreB6, &xHigherPriorityTaskWoken);
 }
 
-
-
 void io_init(void)
 {
 	pmc_enable_periph_clk(VALVE_PIO_ID);
@@ -531,6 +429,15 @@ void io_init(void)
 	pio_configure(BOMBA5_PIO, PIO_OUTPUT_0, BOMBA5_IDX_MASK, PIO_DEFAULT);
 	pmc_enable_periph_clk(BOMBA6_PIO_ID);
 	pio_configure(BOMBA6_PIO, PIO_OUTPUT_0, BOMBA6_IDX_MASK, PIO_DEFAULT);
+	
+	pmc_enable_periph_clk(LED_VERMELHO_PIO_ID);
+	pio_configure(LED_VERMELHO_PIO, PIO_OUTPUT_1, LED_VERMELHO_IDX_MASK, PIO_DEFAULT);
+	
+	pmc_enable_periph_clk(LED_VERDE_PIO_ID);
+	pio_configure(LED_VERDE_PIO, PIO_OUTPUT_1,LED_VERDE_IDX_MASK, PIO_DEFAULT);
+	
+	pmc_enable_periph_clk(LED_AZUL_PIO_ID);
+	pio_configure(LED_AZUL_PIO, PIO_OUTPUT_1, LED_AZUL_IDX_MASK, PIO_DEFAULT);
 
 
 	pmc_enable_periph_clk(BUT_PIO_ID);
@@ -588,7 +495,7 @@ void io_init(void)
 	
 
 	NVIC_EnableIRQ(BUT_PIO_ID);
-	NVIC_SetPriority(BUT_PIO_ID, 5); 
+	NVIC_SetPriority(BUT_PIO_ID, 5);
 	
 	NVIC_EnableIRQ(BUT_VERDE_PIO_ID);
 	NVIC_SetPriority(BUT_VERDE_PIO_ID, 5);
@@ -611,9 +518,8 @@ void io_init(void)
 	pio_enable_interrupt(BUT_BRANCO_PIO, BUT_BRANCO_IDX_MASK);
 	pio_enable_interrupt(BUT_AMARELO_PIO, BUT_AMARELO_IDX_MASK);
 	pio_enable_interrupt(BUT_PRETO_PIO, BUT_PRETO_IDX_MASK);
-		
+	
 }
-
 
 /************************************************************************/
 /* funcoes                                                              */
@@ -650,41 +556,134 @@ uint32_t convert_axis_system_y(uint32_t touch_x) {
 	return ILI9488_LCD_HEIGHT*touch_x/4096;
 }
 
+void crazylights(void){
+	
+}
+
+/**
+ * \brief Configure the console UART.
+ */
+
+static void configure_console(void){
+	const usart_serial_options_t uart_serial_options = {
+		.baudrate = USART_SERIAL_EXAMPLE_BAUDRATE,
+#if (defined CONF_UART_CHAR_LENGTH)
+		.charlength = USART_SERIAL_CHAR_LENGTH,
+#endif
+		.paritytype = USART_SERIAL_PARITY,
+#if (defined CONF_UART_STOP_BITS)
+		.stopbits = USART_SERIAL_STOP_BIT,
+#endif
+	};
+
+	/* Configure console UART. */
+	stdio_serial_init(USART_SERIAL_EXAMPLE, &uart_serial_options);
+
+	/* Specify that stdout should not be buffered. */
+#if defined(__GNUC__)
+	setbuf(stdout, NULL);
+#else
+	/* Already the case in IAR's Normal DLIB default configuration: printf()
+	 * emits one character at a time.
+	 */
+#endif
+}
+
+uint32_t usart_puts(uint8_t *pstring){
+	uint32_t i ;
+
+	while(*(pstring + i))
+		if(uart_is_tx_empty(USART_COM))
+			usart_serial_putchar(USART_COM, *(pstring+i++));
+}
+
+void usart_put_string(Usart *usart, char str[]) {
+  usart_serial_write_packet(usart, str, strlen(str));
+}
+
+int usart_get_string(Usart *usart, char buffer[], int bufferlen, uint timeout_ms) {
+  uint timecounter = timeout_ms;
+  uint32_t rx;
+  uint32_t counter = 0;
+  
+  while( (timecounter > 0) && (counter < bufferlen - 1)) {
+    if(usart_read(usart, &rx) == 0) {
+      buffer[counter++] = rx;
+    }
+    else{
+      timecounter--;
+      vTaskDelay(1);
+    }    
+  }
+  buffer[counter] = 0x00;
+  return counter;
+}
+
+void usart_send_command(Usart *usart, char buffer_rx[], int bufferlen, char buffer_tx[], int timeout) {
+  usart_put_string(usart, buffer_tx);
+  usart_get_string(usart, buffer_rx, bufferlen, timeout);
+}
+
+void hc05_config_server(void) {
+  sysclk_enable_peripheral_clock(USART_COM_ID);
+  usart_serial_options_t config;
+  config.baudrate = 9600;
+  config.charlength = US_MR_CHRL_8_BIT;
+  config.paritytype = US_MR_PAR_NO;
+  config.stopbits = false;
+  usart_serial_init(USART_COM, &config);
+  usart_enable_tx(USART_COM);
+  usart_enable_rx(USART_COM);
+  
+  // RX - PB0  TX - PB1
+  pio_configure(PIOB, PIO_PERIPH_C, (1 << 0), PIO_DEFAULT);
+  pio_configure(PIOB, PIO_PERIPH_C, (1 << 1), PIO_DEFAULT);
+}
+
+int hc05_server_init(void) {
+  char buffer_rx[128];
+  usart_send_command(USART0, buffer_rx, 1000, "AT", 100); printf("AT\n");
+  usart_send_command(USART0, buffer_rx, 1000, "AT", 100);
+  usart_send_command(USART0, buffer_rx, 1000, "AT+NAMEBarInABox", 400);
+  usart_send_command(USART0, buffer_rx, 1000, "AT", 100);
+  usart_send_command(USART0, buffer_rx, 1000, "AT+PIN0000", 100);
+}
+
+/************************************************************************/
+/* TASKS                                                                */
+/************************************************************************/
+
 void task_bluetooth(void){
-	char bluetoothBuffer[1024];
-	uint bluetoothString;
-	
-	while(true){
-		if(xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 100) == pdTRUE ){
-			printf("Ola1");
-		}
-		else{
-			printf("Ola2");
-			if(bluetoothString > 0){
-				usart_put_string(USART0, "PAGAMENTO REALIZADO\n");
-				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
-			}
-			
-			usart_get_string(USART1, bluetoothBuffer, 1024, 1000);
-			usart_put_string(USART0, bluetoothBuffer);
-			bluetoothString = usart_get_string(USART0, bluetoothBuffer, 1024, 1000);
-			usart_log("main", bluetoothBuffer);
-		}
+  
+  printf("Bluetooth initializing \n");
+  hc05_config_server();
+  hc05_server_init();
+  char bluetoothBuffer[10];
+  uint bluetoothString;
+  
+  while(1){
+    //printf("done\n");
+	usart_get_string(USART1, bluetoothBuffer, 1024, 1000);
+	usart_put_string(USART0, bluetoothBuffer);
+	bluetoothString = usart_get_string(USART0, bluetoothBuffer, 1024, 1000);
+	if(bluetoothString > 0){
+		usart_put_string(USART0, "PAGAMENTO REALIZADO\n");
 	}
-	
+    vTaskDelay( 500 / portTICK_PERIOD_MS);
+  }
 }
 
 void task_bomb1(void){
 	while(true){
 		if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(VALVE_PIO, VALVE_IDX_MASK);
+			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000); 
+			vTaskDelay(10000);
 			pio_clear(VALVE_PIO, VALVE_IDX_MASK);
-
+			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);			
 		}
-		vTaskDelay(100); 
+		vTaskDelay(100);
 	}
 }
 
@@ -692,143 +691,146 @@ void task_bomb2(void){
 	while(true){
 		if(xSemaphoreTake(xSemaphoreB2, ( TickType_t ) 100) == pdTRUE ){
 			pio_set(BOMBA_PIO, BOMBA_IDX_MASK);
+			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
 			// Tempo teste: descobrir o tempo para encher metade de um copo
 			vTaskDelay(10000);
 			pio_clear(BOMBA_PIO, BOMBA_IDX_MASK);
-			
+			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);			
 		}
-		vTaskDelay(100); 
+		vTaskDelay(100);
 	}
 }
 
 void task_bomb3(void){
-		while(true){
-			if(xSemaphoreTake(xSemaphoreB3, ( TickType_t ) 100) == pdTRUE ){
-				pio_set(BOMBA3_PIO, BOMBA3_IDX_MASK);
-				// Tempo teste: descobrir o tempo para encher metade de um copo
-				vTaskDelay(10000);
-				pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
-				
-			}
-			vTaskDelay(100);
+	while(true){
+		if(xSemaphoreTake(xSemaphoreB3, ( TickType_t ) 100) == pdTRUE ){
+			pio_set(BOMBA3_PIO, BOMBA3_IDX_MASK);
+			pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+			// Tempo teste: descobrir o tempo para encher metade de um copo
+			vTaskDelay(10000);
+			pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
+			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
 		}
+		vTaskDelay(100);
+	}
 }
 
 void task_bomb4(void){
-		while(true){
-			if(xSemaphoreTake(xSemaphoreB4, ( TickType_t ) 100) == pdTRUE ){
-				pio_set(BOMBA4_PIO, BOMBA4_IDX_MASK);
-				// Tempo teste: descobrir o tempo para encher metade de um copo
-				vTaskDelay(10000);
-				pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
-				
-			}
-			vTaskDelay(100);
+	while(true){
+		if(xSemaphoreTake(xSemaphoreB4, ( TickType_t ) 100) == pdTRUE ){
+			pio_set(BOMBA4_PIO, BOMBA4_IDX_MASK);
+			pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+			// Tempo teste: descobrir o tempo para encher metade de um copo
+			vTaskDelay(10000);
+			pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
+			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
 		}
+		vTaskDelay(100);
+	}
 }
 
 void task_bomb5(void){
-		while(true){
-			if(xSemaphoreTake(xSemaphoreB5, ( TickType_t ) 100) == pdTRUE ){
-				pio_set(BOMBA5_PIO, BOMBA5_IDX_MASK);
-				// Tempo teste: descobrir o tempo para encher metade de um copo
-				vTaskDelay(10000);
-				pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
-				
-			}
-			vTaskDelay(100);
+	while(true){
+		if(xSemaphoreTake(xSemaphoreB5, ( TickType_t ) 100) == pdTRUE ){
+			pio_set(BOMBA5_PIO, BOMBA5_IDX_MASK);
+			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+			// Tempo teste: descobrir o tempo para encher metade de um copo
+			vTaskDelay(10000);
+			pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
+			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 		}
+		vTaskDelay(100);
+	}
 }
 
 void task_bomb6(void){
-		while(true){
-			if(xSemaphoreTake(xSemaphoreB6, ( TickType_t ) 100) == pdTRUE ){
-				pio_set(BOMBA6_PIO, BOMBA6_IDX_MASK);
-				// Tempo teste: descobrir o tempo para encher metade de um copo
-				vTaskDelay(10000);
-				pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
-				
-			}
-			vTaskDelay(100);
+	while(true){
+		if(xSemaphoreTake(xSemaphoreB6, ( TickType_t ) 100) == pdTRUE ){
+			pio_set(BOMBA6_PIO, BOMBA6_IDX_MASK);
+			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+			pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+			// Tempo teste: descobrir o tempo para encher metade de um copo
+			vTaskDelay(10000);
+			pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
+			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
 		}
+		vTaskDelay(100);
+	}
 }
-
-
 
 /************************************************************************/
 /* main                                                                 */
 /************************************************************************/
 
-int main(void)
-{
+int main(void){
 	/* Initialize the USART configuration struct */
-	const usart_serial_options_t usart_serial_options = {
-		.baudrate     = USART_SERIAL_EXAMPLE_BAUDRATE,
-		.charlength   = USART_SERIAL_CHAR_LENGTH,
-		.paritytype   = USART_SERIAL_PARITY,
-		.stopbits     = USART_SERIAL_STOP_BIT
-	};
-
-	sysclk_init(); /* Initialize system clocks */
-	board_init();  /* Initialize board */
+	/*const usart_serial_options_t usart_serial_options = {
+		.baudrate     = CONF_UART_BAUDRATE,
+		.charlength   = CONF_UART_CHAR_LENGTH,
+		.paritytype   = CONF_UART_PARITY,
+		.stopbits     = CONF_UART_STOP_BITS
+	};*/
+	
+	/* Initialize the SAM system */
+	sysclk_init();
+	board_init();
 	delay_init();
 	
 	SysTick_Config(sysclk_get_cpu_hz() / 1000); // 1 ms
-	config_console();
-	usart_put_string(USART1, "Inicializando...\r\n");
-	usart_put_string(USART1, "Config HC05 Server...\r\n");
-	hm10_config_server();
-	hm10_server_init();	
+
+	/* Initialize the console uart */
+	configure_console();
 	
 	/* Initialize stdio on USART */
-	stdio_serial_init(USART_SERIAL_EXAMPLE, &usart_serial_options);
+	/*stdio_serial_init(USART_SERIAL_EXAMPLE, &usart_serial_options);*/
 	
 	xSemaphoreB1 = xSemaphoreCreateBinary();
 	xSemaphoreB2 = xSemaphoreCreateBinary();
 	xSemaphoreB3 = xSemaphoreCreateBinary();
 	xSemaphoreB4 = xSemaphoreCreateBinary();
 	xSemaphoreB5 = xSemaphoreCreateBinary();
-	xSemaphoreB5 = xSemaphoreCreateBinary();
+	xSemaphoreB6 = xSemaphoreCreateBinary();
 	xSemaphoreBluetooth = xSemaphoreCreateBinary();
-		  	 
+	
 	io_init();
-  
-   /* Create task to handler touch */
-   if (xTaskCreate(task_bomb1, "Bomb 1", TASK_BOMB1_STACK_SIZE, NULL, TASK_BOMB1_STACK_PRIORITY, NULL) != pdPASS) {
-	    printf("Failed to create test BOMB 1 task\r\n");
-    }
+	
+	/* Create task to handler touch */
+	if (xTaskCreate(task_bomb1, "Bomb 1", TASK_BOMB1_STACK_SIZE, NULL, TASK_BOMB1_STACK_PRIORITY, NULL) != pdPASS) {
+		printf("Failed to create test BOMB 1 task\r\n");
+	}
 	
 	if (xTaskCreate(task_bomb2, "Bomb 2", TASK_BOMB2_STACK_SIZE, NULL, TASK_BOMB2_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test BOMB 1 task\r\n");
 	}
 	
-	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
-		printf("Failed to create test BOMB 1 task\r\n");
-	}
-	
-	if (xTaskCreate(task_bomb4, "Bomb 4", TASK_BOMB4_STACK_SIZE, NULL, TASK_BOMB4_STACK_PRIORITY, NULL) != pdPASS) {
-		printf("Failed to create test BOMB 1 task\r\n");
-	}
-	
-	if (xTaskCreate(task_bomb5, "Bomb 5", TASK_BOMB5_STACK_SIZE, NULL, TASK_BOMB5_STACK_PRIORITY, NULL) != pdPASS) {
-		printf("Failed to create test BOMB 1 task\r\n");
-	}
-	
-	if (xTaskCreate(task_bomb6, "Bomb 6", TASK_BOMB6_STACK_SIZE, NULL, TASK_BOMB6_STACK_PRIORITY, NULL) != pdPASS) {
-		printf("Failed to create test BOMB 1 task\r\n");
-	}
-	
-	if (xTaskCreate(task_bluetooth, "Bluetooth", TASK_BLUETOOTH_STACK_SIZE, NULL, TASK_BLUETOOTH_STACK_PRIORITY, NULL) != pdPASS) {
-		printf("Failed to create test Bluetooth task\r\n");
-	}
-
+ 	if (xTaskCreate(task_bomb3, "Bomb 3", TASK_BOMB3_STACK_SIZE, NULL, TASK_BOMB3_STACK_PRIORITY, NULL) != pdPASS) {
+ 		printf("Failed to create test BOMB 1 task\r\n");
+ 	}
+ 	
+ 	if (xTaskCreate(task_bomb4, "Bomb 4", TASK_BOMB4_STACK_SIZE, NULL, TASK_BOMB4_STACK_PRIORITY, NULL) != pdPASS) {
+ 		printf("Failed to create test BOMB 1 task\r\n");
+ 	}
+ 	
+ 	if (xTaskCreate(task_bomb5, "Bomb 5", TASK_BOMB5_STACK_SIZE, NULL, TASK_BOMB5_STACK_PRIORITY, NULL) != pdPASS) {
+ 		printf("Failed to create test BOMB 1 task\r\n");
+ 	}
+ 	
+ 	if (xTaskCreate(task_bomb6, "Bomb 6", TASK_BOMB6_STACK_SIZE, NULL, TASK_BOMB6_STACK_PRIORITY, NULL) != pdPASS) {
+ 		printf("Failed to create test BOMB 1 task\r\n");
+ 	}
+ 	
+ 	xTaskCreate(task_bluetooth, "BLT", TASK_BLUETOOTH_STACK_SIZE, NULL,	TASK_BLUETOOTH_STACK_PRIORITY, NULL);
+   
 	/* Start the scheduler. */
 	vTaskStartScheduler();
 
-	while(1){
+	while(1){}
 
-	}
-
-
+	/* Will only get here if there was insufficient memory to create the idle task. */
 	return 0;
 }

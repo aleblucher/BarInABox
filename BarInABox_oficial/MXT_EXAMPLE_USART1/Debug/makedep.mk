@@ -42,6 +42,8 @@ src\ASF\sam\drivers\rtc\rtc.c
 
 src\ASF\sam\drivers\spi\spi.c
 
+src\ASF\sam\drivers\tc\tc.c
+
 src\ASF\sam\drivers\twihs\twihs.c
 
 src\ASF\sam\drivers\uart\uart.c

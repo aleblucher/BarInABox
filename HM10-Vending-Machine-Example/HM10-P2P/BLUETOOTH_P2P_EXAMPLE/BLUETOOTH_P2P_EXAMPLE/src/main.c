@@ -161,12 +161,16 @@ int main (void)
 	hm10_config_server();
 	hm10_server_init();
 	char buffer[1024];
+	uint bluetoothString;
 	
 	while(1) {
 		usart_get_string(USART1, buffer, 1024, 1000);
 		usart_put_string(USART0, buffer);
-		usart_get_string(USART0, buffer, 1024, 1000);
+		bluetoothString = usart_get_string(USART0, buffer, 1024, 1000);
 		usart_log("main", buffer);
+		if(bluetoothString > 0){
+			usart_put_string(USART0, "PAGAMENTO REALIZADO\n");
+		}
 	}
 	
 	
