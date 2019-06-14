@@ -76,6 +76,7 @@ SUBDIRS :=  \
 ../src/ASF/sam/drivers/rtc/ \
 ../src/ASF/sam/drivers/spi/ \
 ../src/ASF/sam/drivers/tc/ \
+../src/ASF/sam/drivers/tc/tc_capture_waveform_example/ \
 ../src/ASF/sam/drivers/twihs/ \
 ../src/ASF/sam/drivers/uart/ \
 ../src/ASF/sam/drivers/usart/ \

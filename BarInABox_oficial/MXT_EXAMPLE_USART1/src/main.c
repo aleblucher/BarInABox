@@ -169,11 +169,14 @@ QueueHandle_t xQueueTouch;
 QueueHandle_t xQueueBomb;
 SemaphoreHandle_t xSemaphoreB1,  xSemaphoreB2,  xSemaphoreB3,  xSemaphoreB4,  xSemaphoreB5,  xSemaphoreB6, xSemaphoreBluetooth;
 volatile uint32_t g_tcCv = 0;
+volatile int g_lcd_state = 0;
 
 /************************************************************************/
 /* LCD + TOUCH                                                          */
 /************************************************************************/
 #define MAX_ENTRIES        3
+
+#define STRING_LENGTH     70
 
 struct ili9488_opt_t g_ili9488_display_opt;
 const uint32_t BUTTON_W = 120;
@@ -526,8 +529,26 @@ void io_init(void)
 /************************************************************************/
 
 void draw_screen(void) {
-	ili9488_set_foreground_color(COLOR_CONVERT(COLOR_WHITE));
+	ili9488_set_foreground_color(COLOR_CONVERT(COLOR_LIGHTBLUE));
 	ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, ILI9488_LCD_HEIGHT-1);
+	
+	ili9488_set_foreground_color(COLOR_CONVERT(COLOR_DARKVIOLET));
+	ili9488_draw_string(85, 100, "BAR IN A BOX");
+	ili9488_set_foreground_color(COLOR_CONVERT(COLOR_BLACK));
+	if(g_lcd_state == 0){
+		ili9488_draw_string(20, 250, "CLIQUE AQUI PARA INICIAR");
+	}
+	if(g_lcd_state == 1){
+		ili9488_draw_string(45, 250, "FAVOR PAGAR NO APP");
+	}
+	if(g_lcd_state == 2){
+		ili9488_draw_string(45, 250, "PAGAMENTO REALIZADO");
+		ili9488_draw_string(55, 280, "PREPARANDO BEBIDA");
+	}
+	if(g_lcd_state == 3){
+		ili9488_draw_string(80, 250, "BEBIDA PRONTA");
+	}
+	
 }
 
 void font_draw_text(tFont *font, const char *text, int x, int y, int spacing) {
@@ -554,6 +575,53 @@ uint32_t convert_axis_system_y(uint32_t touch_x) {
 	// entrada: 0 - 4096 (sistema de coordenadas atual)
 	// saida: 0 - 320
 	return ILI9488_LCD_HEIGHT*touch_x/4096;
+}
+
+void mxt_handler(struct mxt_device *device)
+{
+	/* USART tx buffer initialized to 0 */
+	char tx_buf[STRING_LENGTH * MAX_ENTRIES] = {0};
+	uint8_t i = 0; /* Iterator */
+
+	/* Temporary touch event data struct */
+	struct mxt_touch_event touch_event;
+
+	/* Collect touch events and put the data in a string,
+	 * maximum 2 events at the time */
+	do {
+		/* Temporary buffer for each new touch event line */
+		char buf[STRING_LENGTH];
+	
+		/* Read next next touch event in the queue, discard if read fails */
+		if (mxt_read_touch_event(device, &touch_event) != STATUS_OK) {
+			continue;
+		}
+		
+		 // eixos trocados (quando na vertical LCD)
+		uint32_t conv_x = convert_axis_system_x(touch_event.y);
+		uint32_t conv_y = convert_axis_system_y(touch_event.x);
+		
+		/* Format a new entry in the data string that will be sent over USART */
+		sprintf(buf, "Nr: %1d, X:%4d, Y:%4d, Status:0x%2x conv X:%3d Y:%3d\n\r",
+				touch_event.id, touch_event.x, touch_event.y,
+				touch_event.status, conv_x, conv_y);
+		if(g_lcd_state == 0){
+			g_lcd_state = 1;
+			draw_screen();
+		}
+
+		/* Add the new string to the string buffer */
+		strcat(tx_buf, buf);
+		i++;
+
+		/* Check if there is still messages in the queue and
+		 * if we have reached the maximum numbers of events */
+	} while ((mxt_is_message_pending(device)) & (i < MAX_ENTRIES));
+
+	/* If there is any entries in the buffer, send them over USART */
+	if (i > 0) {
+		usart_serial_write_packet(USART_SERIAL_EXAMPLE, (uint8_t *)tx_buf, strlen(tx_buf));
+	}
 }
 
 void crazylights(void){
@@ -654,112 +722,215 @@ int hc05_server_init(void) {
 /************************************************************************/
 
 void task_bluetooth(void){
-  
   printf("Bluetooth initializing \n");
   hc05_config_server();
   hc05_server_init();
   char bluetoothBuffer[10];
   uint bluetoothString;
   
+  struct mxt_device device;
+  mxt_init(&device);
+  mxt_init(&device);
+  int bluetoothActivated = 1;
+  
   while(1){
-    //printf("done\n");
-	usart_get_string(USART1, bluetoothBuffer, 1024, 1000);
-	usart_put_string(USART0, bluetoothBuffer);
-	bluetoothString = usart_get_string(USART0, bluetoothBuffer, 1024, 1000);
-	if(bluetoothString > 0){
-		usart_put_string(USART0, "PAGAMENTO REALIZADO\n");
+	if (mxt_is_message_pending(&device)) {
+		mxt_handler(&device);
 	}
-    vTaskDelay( 500 / portTICK_PERIOD_MS);
+	
+	if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+		bluetoothActivated = !bluetoothActivated;
+	}
+	
+	if(bluetoothActivated){	
+		//printf("done\n");
+		usart_get_string(USART1, bluetoothBuffer, 1024, 1000);
+		usart_put_string(USART0, bluetoothBuffer);
+		bluetoothString = usart_get_string(USART0, bluetoothBuffer, 1024, 1000);
+		if(bluetoothString > 0){
+			usart_put_string(USART0, "PAGAMENTO REALIZADO\n");
+			g_lcd_state = 2;
+			draw_screen();
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
+		}
+		vTaskDelay( 500 / portTICK_PERIOD_MS);
+	}
   }
 }
 
 void task_bomb1(void){
+	int bluetoothActivated = 1;
+	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
-			pio_set(VALVE_PIO, VALVE_IDX_MASK);
-			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
-			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000);
-			pio_clear(VALVE_PIO, VALVE_IDX_MASK);
-			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);			
+		if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+			bluetoothActivated = !bluetoothActivated;
 		}
-		vTaskDelay(100);
+		if(!bluetoothActivated){
+			if(xSemaphoreTake(xSemaphoreB1, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(VALVE_PIO, VALVE_IDX_MASK);
+				pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(VALVE_PIO, VALVE_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				g_lcd_state = 3;
+				draw_screen();
+				vTaskDelay( 5000 / portTICK_PERIOD_MS);
+				g_lcd_state = 0;
+				draw_screen();
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
+				
+			}
+			vTaskDelay(100);
+		}
 	}
 }
 
 void task_bomb2(void){
+	int bluetoothActivated = 1;
+	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreB2, ( TickType_t ) 100) == pdTRUE ){
-			pio_set(BOMBA_PIO, BOMBA_IDX_MASK);
-			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000);
-			pio_clear(BOMBA_PIO, BOMBA_IDX_MASK);
-			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);			
+		if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+			bluetoothActivated = !bluetoothActivated;
 		}
-		vTaskDelay(100);
+		if(!bluetoothActivated){
+			if(xSemaphoreTake(xSemaphoreB2, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA_PIO, BOMBA_IDX_MASK);
+				pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA_PIO, BOMBA_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				g_lcd_state = 3;
+				draw_screen();
+				vTaskDelay( 5000 / portTICK_PERIOD_MS);
+				g_lcd_state = 0;
+				draw_screen();
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);		
+			}
+			vTaskDelay(100);
+		}
 	}
 }
 
 void task_bomb3(void){
+	int bluetoothActivated = 1;
+	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreB3, ( TickType_t ) 100) == pdTRUE ){
-			pio_set(BOMBA3_PIO, BOMBA3_IDX_MASK);
-			pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000);
-			pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
-			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+		if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+			bluetoothActivated = !bluetoothActivated;
 		}
-		vTaskDelay(100);
+		if(!bluetoothActivated){
+			if(xSemaphoreTake(xSemaphoreB3, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA3_PIO, BOMBA3_IDX_MASK);
+				pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA3_PIO, BOMBA3_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				g_lcd_state = 3;
+				draw_screen();
+				vTaskDelay( 5000 / portTICK_PERIOD_MS);
+				g_lcd_state = 0;
+				draw_screen();
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
+			}
+			vTaskDelay(100);
+		}
 	}
 }
 
 void task_bomb4(void){
+	int bluetoothActivated = 1;
+	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreB4, ( TickType_t ) 100) == pdTRUE ){
-			pio_set(BOMBA4_PIO, BOMBA4_IDX_MASK);
-			pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000);
-			pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
-			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+		if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+			bluetoothActivated = !bluetoothActivated;
 		}
-		vTaskDelay(100);
+		if(!bluetoothActivated){
+			if(xSemaphoreTake(xSemaphoreB4, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA4_PIO, BOMBA4_IDX_MASK);
+				pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA4_PIO, BOMBA4_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				g_lcd_state = 3;
+				draw_screen();
+				vTaskDelay( 5000 / portTICK_PERIOD_MS);
+				g_lcd_state = 0;
+				draw_screen();
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
+			}
+			vTaskDelay(100);
+		}
 	}
 }
 
 void task_bomb5(void){
+	int bluetoothActivated = 1;
+	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreB5, ( TickType_t ) 100) == pdTRUE ){
-			pio_set(BOMBA5_PIO, BOMBA5_IDX_MASK);
-			pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
-			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000);
-			pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
-			pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
-			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+		if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+			bluetoothActivated = !bluetoothActivated;
 		}
-		vTaskDelay(100);
+		if(!bluetoothActivated){
+			if(xSemaphoreTake(xSemaphoreB5, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA5_PIO, BOMBA5_IDX_MASK);
+				pio_clear(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA5_PIO, BOMBA5_IDX_MASK);
+				pio_set(LED_VERDE_PIO, LED_VERDE_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				g_lcd_state = 3;
+				draw_screen();
+				vTaskDelay( 5000 / portTICK_PERIOD_MS);
+				g_lcd_state = 0;
+				draw_screen();
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
+			}
+			vTaskDelay(100);
+		}
 	}
 }
 
 void task_bomb6(void){
+	int bluetoothActivated = 1;
+	
 	while(true){
-		if(xSemaphoreTake(xSemaphoreB6, ( TickType_t ) 100) == pdTRUE ){
-			pio_set(BOMBA6_PIO, BOMBA6_IDX_MASK);
-			pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
-			pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-			// Tempo teste: descobrir o tempo para encher metade de um copo
-			vTaskDelay(10000);
-			pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
-			pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
-			pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+		if( xSemaphoreTake(xSemaphoreBluetooth, ( TickType_t ) 10) == pdTRUE ){
+			bluetoothActivated = !bluetoothActivated;
 		}
-		vTaskDelay(100);
+		if(!bluetoothActivated){
+			if(xSemaphoreTake(xSemaphoreB6, ( TickType_t ) 100) == pdTRUE ){
+				pio_set(BOMBA6_PIO, BOMBA6_IDX_MASK);
+				pio_clear(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				pio_clear(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				// Tempo teste: descobrir o tempo para encher metade de um copo
+				vTaskDelay(10000);
+				pio_clear(BOMBA6_PIO, BOMBA6_IDX_MASK);
+				pio_set(LED_VERMELHO_PIO, LED_VERMELHO_IDX_MASK);
+				pio_set(LED_AZUL_PIO, LED_AZUL_IDX_MASK);
+				g_lcd_state = 3;
+				draw_screen();
+				vTaskDelay( 5000 / portTICK_PERIOD_MS);
+				g_lcd_state = 0;
+				draw_screen();
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(xSemaphoreBluetooth, &xHigherPriorityTaskWoken);
+			}
+			vTaskDelay(100);
+		}
 	}
 }
 
@@ -770,16 +941,18 @@ void task_bomb6(void){
 int main(void){
 	/* Initialize the USART configuration struct */
 	/*const usart_serial_options_t usart_serial_options = {
-		.baudrate     = CONF_UART_BAUDRATE,
-		.charlength   = CONF_UART_CHAR_LENGTH,
-		.paritytype   = CONF_UART_PARITY,
-		.stopbits     = CONF_UART_STOP_BITS
+		.baudrate   = USART_SERIAL_EXAMPLE_BAUDRATE,
+		.charlength = USART_SERIAL_CHAR_LENGTH,
+		.paritytype = USART_SERIAL_PARITY,
+		.stopbits   = USART_SERIAL_STOP_BIT,
 	};*/
 	
 	/* Initialize the SAM system */
 	sysclk_init();
 	board_init();
 	delay_init();
+	configure_lcd();	
+	draw_screen();
 	
 	SysTick_Config(sysclk_get_cpu_hz() / 1000); // 1 ms
 
